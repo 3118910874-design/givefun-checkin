@@ -1,12 +1,12 @@
-yaml
-
-
 name: 疾风登录（获取令牌）
 
 # 手机号 + 短信验证码登录，成功后把令牌写回仓库 Secrets。
 # 令牌过期时重新跑一次即可（一般可用数月，视服务端策略而定）。
 #
-# 使用前提：仓库已配置 Secret `GH_PAT`（细粒度令牌，需 Actions secrets: Read and write 权限）。
+# 使用前提：仓库已配置 Secret `GH_PAT`。
+#   ⚠️ 必须是 Classic 令牌（勾选 repo scope）—— GitHub Actions 的 Secrets 接口
+#   不支持 Fine-grained（细粒度）令牌，用细粒度令牌添加 Secret 会失败。
+#   名称必须是 GH_PAT，不能以 GITHUB_ / ACTIONS_ 开头（保留前缀）。
 
 on:
   workflow_dispatch:
