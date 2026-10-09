@@ -128,7 +128,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
                         help="短信验证码；不传则只发送验证码")
     parser.add_argument("--send-only", action="store_true", help="只发送验证码")
     parser.add_argument("--register", action="store_true",
-                        help="走注册流程（未注册的手机号需要先注册）")
+                        help="走注册流程（仅在从未注册过时才需要；默认永远是登录）")
     parser.add_argument("--status", action="store_true", help="只查询手机号注册状态")
     parser.add_argument("--write-state", action="store_true",
                         help="把凭据写入本地 state.json")
@@ -141,7 +141,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         print("错误：请提供 --phone 或设置 GIVEFUN_PHONE")
         return 2
 
-    # 0) 注册状态：决定走登录还是注册
+    # 0) 注册状态：仅作信息展示，不改变默认行为（默认永远走登录）
     try:
         status = phone_status(phone)
         is_register = int(status.get("isRegister") or 0)
@@ -155,16 +155,16 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     if args.status:
         return 0
 
+    # 只有显式指定 --register 才走注册；其余一律登录
+    action = "注册" if args.register else "登录"
+    code_type = 2 if args.register else 1
     if not is_register and not args.register:
-        is_register = 0
-
-    code_type = 1 if is_register else 2
-    if not is_register:
-        print("      提示：该手机号尚未注册，将使用注册验证码（type=2）")
+        print("      注意：服务端标记该手机号未注册。若你确实在用这个号登录，"
+              "请忽略此提示；若从未注册过，需先加 --register 完成注册。")
 
     # 1) 发送验证码
     if args.send_only or not args.code:
-        print(f"[1/3] 正在向 {mask_phone(phone)} 发送验证码（type={code_type}）…")
+        print(f"[1/3] 正在向 {mask_phone(phone)} 发送{action}验证码（type={code_type}）…")
         try:
             result = send_code(phone, code_type=code_type)
         except GiveFunError as exc:
@@ -179,10 +179,9 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
 
     # 2) 登录 / 注册
     code = args.code.strip()
-    action = "注册" if args.register or not is_register else "登录"
     print(f"[2/3] 使用验证码{action} {mask_phone(phone)} …")
     try:
-        result = register(phone, code) if action == "注册" else login(phone, code)
+        result = register(phone, code) if args.register else login(phone, code)
     except GiveFunError as exc:
         print(f"[2/3] {action}失败：{exc}")
         if "veriStr" in str(exc):
