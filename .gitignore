@@ -1,0 +1,18 @@
+# 状态文件（含登录令牌，禁止提交）
+state.json
+capture.jsonl
+capture.flow
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
