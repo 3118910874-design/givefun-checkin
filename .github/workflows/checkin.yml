@@ -1,0 +1,86 @@
+yaml
+
+
+name: 疾风每日领取
+
+on:
+  schedule:
+    # UTC 17:10 = 北京时间次日 01:10，避开 0 点的高峰与跨天结算
+    - cron: "10 17 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "只查询不领取"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: givefun-daily
+  cancel-in-progress: false
+
+jobs:
+  checkin:
+    name: 自动领取加速时长
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 拉取仓库
+        uses: actions/checkout@v4
+
+      - name: 准备 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 打印环境时间
+        run: |
+          echo "北京时间: $(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S')"
+          echo "UTC 时间 : $(date -u '+%Y-%m-%d %H:%M:%S')"
+
+      - name: 接口连通性自检
+        run: python tools/selftest.py
+        continue-on-error: true
+
+      - name: 执行每日领取
+        env:
+          GIVEFUN_TOKEN: ${{ secrets.GIVEFUN_TOKEN }}
+          GIVEFUN_DEVICE_ID: ${{ secrets.GIVEFUN_DEVICE_ID }}
+          GIVEFUN_USER_ID: ${{ secrets.GIVEFUN_USER_ID }}
+          GIVEFUN_PHONE: ${{ secrets.GIVEFUN_PHONE }}
+          GIVEFUN_EXTRA_HEADERS: ${{ secrets.GIVEFUN_EXTRA_HEADERS }}
+          GIVEFUN_WARMUP: "1"
+          # 需要排查协议时改成 "1"，日志会打印每个请求/响应的明细
+          GIVEFUN_DEBUG: "0"
+          # 推送渠道（按需配置，未配置的会自动跳过）
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+          PUSHPLUS_TOPIC: ${{ secrets.PUSHPLUS_TOPIC }}
+          SERVERCHAN_SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
+          WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
+          DINGTALK_BOT_KEY: ${{ secrets.DINGTALK_BOT_KEY }}
+          DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
+          FEISHU_BOT_KEY: ${{ secrets.FEISHU_BOT_KEY }}
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+          BARK_GROUP: ${{ secrets.BARK_GROUP }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python checkin.py --dry-run
+          else
+            python checkin.py
+          fi
+
+      - name: 上传日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: givefun-checkin-log
+          path: |
+            *.log
+            state.json
+          if-no-files-found: ignore
+          retention-days: 7
