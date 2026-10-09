@@ -1,12 +1,16 @@
 name: 疾风登录（获取令牌）
 
-# 手机号 + 短信验证码登录，成功后把令牌写回仓库 Secrets。
+# 手机号 + 短信验证码【登录】，成功后把令牌写回仓库 Secrets。
+# 只做登录，不会注册任何账号。
 # 令牌过期时重新跑一次即可（一般可用数月，视服务端策略而定）。
 #
 # 使用前提：仓库已配置 Secret `GH_PAT`。
 #   ⚠️ 必须是 Classic 令牌（勾选 repo scope）—— GitHub Actions 的 Secrets 接口
 #   不支持 Fine-grained（细粒度）令牌，用细粒度令牌添加 Secret 会失败。
 #   名称必须是 GH_PAT，不能以 GITHUB_ / ACTIONS_ 开头（保留前缀）。
+#
+# 若不想配 GH_PAT：把日志里打印的 GIVEFUN_TOKEN 手动填进仓库 Secret 即可，
+# 每日领取工作流只读 GIVEFUN_TOKEN，不影响。
 
 on:
   workflow_dispatch:
@@ -16,7 +20,7 @@ on:
         required: false
         type: string
       mode:
-        description: "send=只发送验证码，login=用验证码登录"
+        description: "send=只发送登录验证码，login=用验证码登录"
         required: true
         default: "send"
         type: choice
@@ -57,6 +61,7 @@ jobs:
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           if [ "${{ inputs.mode }}" = "send" ]; then
+            # 只发送登录验证码（type=1），不会注册
             python login_helper.py --send-only
           else
             if [ -z "$GIVEFUN_CODE" ]; then
@@ -69,7 +74,8 @@ jobs:
       - name: 完成提示
         if: inputs.mode == 'send'
         run: |
-          echo "### 验证码已发送 :incoming_envelope:" >> $GITHUB_STEP_SUMMARY
+          echo "### 登录验证码已发送 :incoming_envelope:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "请重新运行本工作流，mode 选择 **login**，并把手机收到的验证码填入 **code** 输入框。" >> $GITHUB_STEP_SUMMARY
           echo "验证码通常 5 分钟内有效，请尽快操作。" >> $GITHUB_STEP_SUMMARY
+
