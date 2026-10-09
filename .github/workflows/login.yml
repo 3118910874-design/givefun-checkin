@@ -1,0 +1,75 @@
+yaml
+
+
+name: 疾风登录（获取令牌）
+
+# 手机号 + 短信验证码登录，成功后把令牌写回仓库 Secrets。
+# 令牌过期时重新跑一次即可（一般可用数月，视服务端策略而定）。
+#
+# 使用前提：仓库已配置 Secret `GH_PAT`（细粒度令牌，需 Actions secrets: Read and write 权限）。
+
+on:
+  workflow_dispatch:
+    inputs:
+      phone:
+        description: "手机号（留空则读取 Secret GIVEFUN_PHONE）"
+        required: false
+        type: string
+      mode:
+        description: "send=只发送验证码，login=用验证码登录"
+        required: true
+        default: "send"
+        type: choice
+        options:
+          - send
+          - login
+      code:
+        description: "短信验证码（mode=login 时必填）"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  login:
+    name: 短信登录并同步凭据
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 拉取仓库
+        uses: actions/checkout@v4
+
+      - name: 准备 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 安装依赖
+        run: pip install requests pynacl
+
+      - name: 执行登录
+        env:
+          GIVEFUN_PHONE: ${{ inputs.phone || secrets.GIVEFUN_PHONE }}
+          GIVEFUN_CODE: ${{ inputs.code }}
+          GIVEFUN_SYNC_SECRETS: "1"
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          if [ "${{ inputs.mode }}" = "send" ]; then
+            python login_helper.py --send-only
+          else
+            if [ -z "$GIVEFUN_CODE" ]; then
+              echo "::error::mode=login 时必须填写 code（短信验证码）"
+              exit 1
+            fi
+            python login_helper.py --sync-secrets
+          fi
+
+      - name: 完成提示
+        if: inputs.mode == 'send'
+        run: |
+          echo "### 验证码已发送 :incoming_envelope:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "请重新运行本工作流，mode 选择 **login**，并把手机收到的验证码填入 **code** 输入框。" >> $GITHUB_STEP_SUMMARY
+          echo "验证码通常 5 分钟内有效，请尽快操作。" >> $GITHUB_STEP_SUMMARY
