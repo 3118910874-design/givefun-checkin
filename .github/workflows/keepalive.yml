@@ -1,0 +1,35 @@
+name: 仓库保活
+
+# GitHub 会在仓库连续 60 天无提交活动后自动停用 schedule 触发器。
+# 本工作流每周做一次最小提交，保证「疾风每日领取」的定时任务持续生效。
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    name: 保持定时任务活跃
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: 拉取仓库
+        uses: actions/checkout@v4
+
+      - name: 更新时间戳
+        run: |
+          TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S %Z' > .github/KEEPALIVE.md
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/KEEPALIVE.md
+          if git diff --cached --quiet; then
+            echo "无变化，跳过提交"
+          else
+            git commit -m "chore: 保活 $(TZ=Asia/Shanghai date '+%Y-%m-%d')"
+            git push
+          fi
