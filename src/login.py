@@ -129,6 +129,9 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     parser.add_argument("--send-only", action="store_true", help="只发送验证码")
     parser.add_argument("--register", action="store_true",
                         help="走注册流程（仅在从未注册过时才需要；默认永远是登录）")
+    parser.add_argument("--schema-type", type=int, default=int(os.environ.get("GIVEFUN_SMS_TYPE") or 2),
+                        help="sms/sendcode 的 type 参数。默认 2（登录）；1 是注册验证码，"
+                             "对已注册手机号会被服务端拒绝且不发送短信")
     parser.add_argument("--status", action="store_true", help="只查询手机号注册状态")
     parser.add_argument("--write-state", action="store_true",
                         help="把凭据写入本地 state.json")
@@ -157,7 +160,8 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
 
     # 只有显式指定 --register 才走注册；其余一律登录
     action = "注册" if args.register else "登录"
-    code_type = 2 if args.register else 1
+    # 已注册账号必须用登录类验证码；type=1 是注册验证码，用错会「该手机号已注册」且不发送短信
+    code_type = 1 if args.register else args.schema_type
     if not is_register and not args.register:
         print("      注意：服务端标记该手机号未注册。若你确实在用这个号登录，"
               "请忽略此提示；若从未注册过，需先加 --register 完成注册。")
@@ -169,7 +173,10 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             result = send_code(phone, code_type=code_type)
         except GiveFunError as exc:
             print(f"[1/3] 发送失败：{exc}")
-            print("      若是频率限制，请等待 60 秒后重试；若提示需要图形验证码，"
+            if "已注册" in str(exc):
+                print("      type=1 是注册验证码，已注册账号请用默认的 type=2"
+                      "（即不要传 --register）。")
+            print("      若是频率限制，请等 60 秒后重试；若提示需要图形验证码，"
                   "请改用官方 App 获取验证码后手动填入 --code。")
             return 1
         print(f"[1/3] 接口返回：{json.dumps(result, ensure_ascii=False)[:300]}")
