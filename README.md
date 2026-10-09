@@ -60,18 +60,28 @@
 
 ### 2. 创建访问令牌 PAT（用于自动写回 Secret）
 
-打开 <https://github.com/settings/personal-access-tokens/new>：
+> ⚠️ **必须用 Classic 令牌，不能用 Fine-grained（细粒度）令牌。**
+> GitHub Actions 的 Secrets 接口不支持细粒度令牌 —— 用细粒度令牌在网页上添加
+> Secret 时会得到含糊的 `Failed to add secret. Please try again.`
+> （细粒度令牌里的 "Secrets: Read and write" 权限管的是 *Codespaces / Dependabot*
+> secrets，与 Actions secrets 无关。）
 
-| 配置项 | 值 |
-|--------|-----|
-| Token name | 随意，如 `givefun-checkin` |
-| Expiration | 建议自定义有效期（如 1 年） |
-| Repository access | 只选你刚 Fork 的这个仓库 |
-| Repository permissions → **Secrets** | **Read and write** |
-| Repository permissions → **Metadata** | Read（默认已选） |
+打开 <https://github.com/settings/tokens/new>（注意是 **Tokens (classic)**，不是
+上面的 Fine-grained tokens），勾选两个 scope：
 
-生成后复制，去到你的仓库：**Settings → Secrets and variables → Actions → New repository secret**，
-名称填 `GH_PAT`，值粘贴刚才的令牌。
+| Scope | 用途 |
+|-------|------|
+| **`repo`** | 读写仓库内容 + 读写 Actions Secrets |
+| **`workflow`** | 允许通过 API 更新 `.github/workflows/` 下的文件 |
+
+**Expiration** 建议自定义有效期（如 1 年），生成后复制。
+
+去到你的仓库：**Settings → Secrets and variables → Actions → New repository secret**，
+名称填 `GH_PAT`（⚠️ 不能以 `GITHUB_` 或 `ACTIONS_` 开头，这两个是保留前缀，会直接报错），
+值粘贴刚才的令牌。
+
+> 如果你不想用令牌，也可以跳过这一步，改为**手动**添加下面第 3 步拿到的令牌 ——
+> 登录工作流只是帮你省去复制粘贴，不是必需的。
 
 ### 3. 登录拿令牌
 
@@ -280,7 +290,8 @@ A：GitHub 会在仓库 60 天无提交活动后停用 schedule。本仓库的�
 若你改过它，请确保仍处于启用状态。
 
 **Q：登录工作流报 `获取公钥失败：401`？**
-A：`GH_PAT` 没配或权限不足。需要「Secrets: Read and write」权限，且 Repository access 包含本仓库。
+A：`GH_PAT` 没配、没用 Classic 令牌，或名称踩了保留前缀。需要 **Classic** 令牌并勾选 `repo`（+ `workflow`）scope；
+名称必须是 `GH_PAT`，不能以 `GITHUB_` / `ACTIONS_` 开头。详见 [第 2 步](#2-创建访问令牌-pat用于自动写回-secret)。
 
 **Q：不想用 GitHub Actions，只想本地定时？**
 A：用系统计划任务调用 `python checkin.py`，令牌通过环境变量传入即可。
