@@ -103,9 +103,12 @@
 > 如果手里已经有可用令牌（例如从官方 App 抓包得到），可以跳过这一步，
 > 直接手动添加 `GIVEFUN_TOKEN` Secret 即可。
 >
-> 未注册的手机号：第一次请把 `mode` 的 `send` 换成注册流程
-> （本地运行 `python login_helper.py --phone <号码> --send-only --register`），
-> 或在官方 App 注册后再用本流程登录。
+> **本工作流只做登录，不会注册任何账号。** 默认始终使用登录验证码（`type=1`）。
+> 只有当你确实从未注册过、需要新建账号时，才在本地显式加 `--register`
+> （`python login_helper.py --phone <号码> --send-only --register`）。
+>
+> 若日志提示「服务端标记该手机号未注册」但你确定在用这个号登录，忽略即可 ——
+> 那只是免登录的 `phonestatus` 接口返回值，不影响登录。
 
 ### 4. 试跑一次
 
@@ -200,14 +203,17 @@ cd givefun-checkin
 # 接口连通性自检（不需要账号）
 python tools/selftest.py
 
-# 查看手机号注册状态
+# 查看手机号注册状态（仅查询，免登录接口）
 python login_helper.py --phone 13800000000 --status
 
-# 发送验证码（type=1 登录 / type=2 注册）
+# 发送【登录】验证码（type=1），不会注册任何账号
 python login_helper.py --phone 13800000000 --send-only
 
 # 用验证码登录，并把令牌写入本地 state.json（已 gitignore）
 python login_helper.py --phone 13800000000 --code 123456 --write-state
+
+# 仅在从未注册过、需要新建账号时才用（会发 type=2 注册验证码）
+python login_helper.py --phone 13800000000 --send-only --register
 
 # 只查询不领取（推荐第一次这么跑）
 GIVEFUN_TOKEN=<你的令牌> python checkin.py --dry-run
@@ -244,7 +250,7 @@ givefun-checkin/
 ├── src/
 │   ├── config.py               # 环境变量配置 + 日志脱敏
 │   ├── client.py               # 接口客户端（信封解析、鉴权、错误规范化）
-│   ├── login.py                # 短信登录、注册、写回 GitHub Secrets
+│   ├── login.py                # 短信登录（默认只登录，不注册）+ 写回 Secrets
 │   ├── daily.py                # 每日主流程（状态→进度→领取→复核→通知）
 │   ├── notify.py               # 7 个推送渠道
 │   └── crypto.py               # AES / MD5 签名工具（协议微调时备用）
